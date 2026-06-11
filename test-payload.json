@@ -1,0 +1,22 @@
+{
+  "enabled": false,
+  "timezone": "Asia/Jakarta",
+  "birthdayNamespace": "custom",
+  "birthdayKey": "birthday",
+  "compareMode": "MONTH_DAY",
+  "discountValueType": "PERCENTAGE",
+  "discountValue": 10,
+  "codePrefix": "HBD",
+  "validityDays": 7,
+  "appliesOncePerCustomer": true,
+  "appliesToAllItems": true,
+  "minimumSubtotal": null,
+  "minimumQuantity": null,
+  "combinesWithOrderDiscounts": false,
+  "combinesWithProductDiscounts": false,
+  "combinesWithShippingDiscounts": false,
+  "usageLimit": 1,
+  "notificationMode": "NONE",
+  "termsTitle": "Birthday discount",
+  "termsDescription": "This code is reserved for the birthday customer and can be used during the configured validity window."
+}

@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum BirthdayCompareMode {
+  MONTH_DAY
+  EXACT_DATE
+}
+
+enum DiscountValueType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum NotificationMode {
+  NONE
+  EMAIL
+  WHATSAPP
+}
+
+enum RunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum RunTrigger {
+  MANUAL
+  CRON
+}
+
+enum GeneratedDiscountStatus {
+  DRY_RUN
+  CREATED
+  FAILED
+  SKIPPED
+}
+
+model BirthdayCampaignSettings {
+  id                           Int                  @id @default(1)
+  enabled                      Boolean              @default(false)
+  timezone                     String               @default("UTC")
+  birthdayNamespace            String               @default("custom")
+  birthdayKey                  String               @default("birthday")
+  compareMode                  BirthdayCompareMode  @default(MONTH_DAY)
+  customerTag                  String               @default("birthday")
+  discountValueType            DiscountValueType    @default(PERCENTAGE)
+  discountValue                Float                @default(10)
+  codePrefix                   String               @default("HBD")
+  validityDays                 Int                  @default(7)
+  appliesOncePerCustomer       Boolean              @default(true)
+  appliesToAllItems            Boolean              @default(true)
+  minimumSubtotal              Float?
+  minimumQuantity              Int?
+  combinesWithOrderDiscounts   Boolean              @default(false)
+  combinesWithProductDiscounts Boolean              @default(false)
+  combinesWithShippingDiscounts Boolean             @default(false)
+  usageLimit                   Int?
+  notificationMode             NotificationMode     @default(NONE)
+  termsTitle                   String               @default("Birthday discount")
+  termsDescription             String               @default("Use this code during the validity window.")
+  lastRunAt                    DateTime?
+  lastDryRunAt                 DateTime?
+  createdAt                    DateTime             @default(now())
+  updatedAt                    DateTime             @updatedAt
+}
+
+model BirthdayScanRun {
+  id           String              @id @default(cuid())
+  status       RunStatus           @default(RUNNING)
+  dryRun       Boolean             @default(false)
+  trigger      RunTrigger          @default(MANUAL)
+  startedAt    DateTime            @default(now())
+  finishedAt   DateTime?
+  matchedCount Int                 @default(0)
+  createdCount Int                 @default(0)
+  skippedCount Int                 @default(0)
+  failedCount  Int                 @default(0)
+  summary      String?
+  errorMessage String?
+  discounts    GeneratedDiscount[]
+
+  @@index([startedAt])
+}
+
+model GeneratedDiscount {
+  id                       String                  @id @default(cuid())
+  runId                    String
+  customerId               String
+  customerName             String?
+  customerEmail            String?
+  birthdayValue            String
+  birthdayMonthDay         String
+  discountCode             String
+  discountTitle            String
+  shopifyDiscountId        String?
+  shopifyDiscountCodeNodeId String?
+  status                   GeneratedDiscountStatus @default(CREATED)
+  reason                   String?
+  campaignYear             Int
+  validFrom                DateTime
+  validUntil               DateTime?
+  isDryRun                 Boolean                 @default(false)
+  createdAt                DateTime                @default(now())
+  run                      BirthdayScanRun         @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([customerId, campaignYear])
+}
