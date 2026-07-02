@@ -9,20 +9,6 @@ function isAuthorizedCronRequest(request: Request) {
   return secret === env.CRON_SECRET;
 }
 
-// Called by Vercel Cron — sends GET with Authorization: Bearer <CRON_SECRET>
-export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return Response.json({ message: "Unauthorized." }, { status: 401 });
-  }
-
-  const run = await runBirthdayScan({ trigger: "CRON", dryRun: false });
-
-  return Response.json(run, {
-    status: run.status === "FAILED" ? 500 : 200,
-  });
-}
-
 export async function POST(request: Request) {
   const payload = await request.json();
   const parsed = runScanRequestSchema.safeParse(payload);

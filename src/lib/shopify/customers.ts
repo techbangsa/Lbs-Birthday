@@ -145,3 +145,19 @@ export async function getCustomersPage({
     pageInfo: data.customers.pageInfo,
   };
 }
+
+export async function getBirthdayCustomers({
+  namespace,
+  key,
+}: {
+  namespace: string;
+  key: string;
+}): Promise<ShopifyBirthdayCustomer[]> {
+  const customers: ShopifyBirthdayCustomer[] = [];
+  for await (const customer of iterateCustomers({ namespace, key, pageSize: 250 })) {
+    if (customer.birthdayValue) {
+      customers.push(customer);
+    }
+  }
+  return customers;
+}

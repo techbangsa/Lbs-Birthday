@@ -221,7 +221,14 @@ export function DashboardClient({
     <Page
       title="Birthday customer tagging"
       subtitle="Review birthday customers, keep campaign settings in a popup, and sync the birthday-today tag from one screen."
+      secondaryActions={[
+        {
+          content: "View Birthday Customers",
+          url: "/customers",
+        },
+      ]}
     >
+
       <Layout>
         <Layout.Section>
           <BlockStack gap="400">
