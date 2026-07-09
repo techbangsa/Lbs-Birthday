@@ -92,3 +92,14 @@ export type CustomerListResponseDto = {
     endCursor: string | null;
   };
 };
+
+export type UpcomingBirthdayDto = {
+  id: string;
+  displayName: string;
+  email: string | null;
+  birthdayValue: string;
+  birthdayMonthDay: string;
+  daysUntil: number;
+  daysUntilLabel: string;
+  isToday: boolean;
+};

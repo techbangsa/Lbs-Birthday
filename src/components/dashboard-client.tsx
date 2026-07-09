@@ -15,6 +15,7 @@ import { useState, useTransition } from "react";
 
 import { RunHistory } from "@/components/run-history";
 import { SettingsForm } from "@/components/settings-form";
+import { UpcomingBirthdays } from "@/components/upcoming-birthdays";
 import type {
   BirthdayRunDto,
   CampaignSettingsDto,
@@ -345,7 +346,10 @@ export function DashboardClient({
         </Layout.Section>
 
         <Layout.Section variant="oneThird">
-          <RunHistory runs={runs} />
+          <BlockStack gap="400">
+            <UpcomingBirthdays />
+            <RunHistory runs={runs} />
+          </BlockStack>
         </Layout.Section>
       </Layout>
 

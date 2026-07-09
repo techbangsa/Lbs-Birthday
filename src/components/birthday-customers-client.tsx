@@ -278,33 +278,33 @@ export function BirthdayCustomersClient({ initialCustomers }: BirthdayCustomersC
             >
               {rowMarkup}
             </IndexTable>
-
-            {sortedCustomers.length > 0 ? (
-              <InlineStack align="space-between" blockAlign="center">
-                <Text as="p" tone="subdued">
-                  Showing {startIndex + 1}–{Math.min(startIndex + itemsPerPage, sortedCustomers.length)} of{" "}
-                  {sortedCustomers.length} customer{sortedCustomers.length === 1 ? "" : "s"} with birthday filled.
-                </Text>
-                {totalPages > 1 && (
-                  <Pagination
-                    hasPrevious={currentPage > 1}
-                    onPrevious={() => setCurrentPage((prev) => prev - 1)}
-                    hasNext={currentPage < totalPages}
-                    onNext={() => setCurrentPage((prev) => prev + 1)}
-                  />
-                )}
-              </InlineStack>
-            ) : (
-              <InlineStack align="center">
-                <Box padding="800">
-                  <Text as="p" tone="subdued">
-                    No customers found matching search criteria.
-                  </Text>
-                </Box>
-              </InlineStack>
-            )}
           </BlockStack>
         </Card>
+
+        {sortedCustomers.length > 0 ? (
+          <InlineStack align="space-between" blockAlign="center">
+            <Text as="p" tone="subdued">
+              Showing {startIndex + 1}–{Math.min(startIndex + itemsPerPage, sortedCustomers.length)} of{" "}
+              {sortedCustomers.length} customer{sortedCustomers.length === 1 ? "" : "s"} with birthday filled.
+            </Text>
+            {totalPages > 1 && (
+              <Pagination
+                hasPrevious={currentPage > 1}
+                onPrevious={() => setCurrentPage((prev) => prev - 1)}
+                hasNext={currentPage < totalPages}
+                onNext={() => setCurrentPage((prev) => prev + 1)}
+              />
+            )}
+          </InlineStack>
+        ) : (
+          <InlineStack align="center">
+            <Box padding="800">
+              <Text as="p" tone="subdued">
+                No customers found matching search criteria.
+              </Text>
+            </Box>
+          </InlineStack>
+        )}
       </BlockStack>
     </Page>
   );

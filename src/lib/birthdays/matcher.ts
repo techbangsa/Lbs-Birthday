@@ -8,7 +8,8 @@ export type ParsedBirthday = {
 
 type CompareMode = "MONTH_DAY" | "EXACT_DATE";
 
-const birthdayPattern = /^(\d{4})-(\d{2})-(\d{2})/;
+const birthdayPatternYMD = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/;
+const birthdayPatternDMY = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/;
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
@@ -41,27 +42,61 @@ export function getCampaignYear(date: Date, timeZone: string) {
 
 export function parseBirthdayValue(value: string): ParsedBirthday | null {
   const trimmed = value.trim();
-  const match = birthdayPattern.exec(trimmed);
 
-  if (!match) {
-    return null;
+  // Try YYYY-MM-DD first (ISO format)
+  let match = birthdayPatternYMD.exec(trimmed);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return {
+        raw: trimmed,
+        year,
+        month,
+        day,
+        monthDay: `${pad(month)}-${pad(day)}`,
+      };
+    }
   }
 
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
+  // Try DD-MM-YYYY or MM-DD-YYYY
+  match = birthdayPatternDMY.exec(trimmed);
+  if (match) {
+    const first = Number(match[1]);
+    const second = Number(match[2]);
+    const year = Number(match[3]);
 
-  if (month < 1 || month > 12 || day < 1 || day > 31) {
-    return null;
+    let day: number;
+    let month: number;
+
+    if (first > 12) {
+      // first must be day (e.g. 25-07-2004)
+      day = first;
+      month = second;
+    } else if (second > 12) {
+      // second must be day (e.g. 07-25-2004)
+      month = first;
+      day = second;
+    } else {
+      // Ambiguous — default to DD-MM-YYYY (this store's convention)
+      day = first;
+      month = second;
+    }
+
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return {
+        raw: trimmed,
+        year,
+        month,
+        day,
+        monthDay: `${pad(month)}-${pad(day)}`,
+      };
+    }
   }
 
-  return {
-    raw: trimmed,
-    year,
-    month,
-    day,
-    monthDay: `${pad(month)}-${pad(day)}`,
-  };
+  return null;
 }
 
 export function birthdayMatchesToday({
