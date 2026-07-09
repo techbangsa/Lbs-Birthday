@@ -6,7 +6,27 @@ export const dynamic = "force-dynamic";
 
 function isAuthorizedCronRequest(request: Request) {
   const secret = request.headers.get("x-cron-secret");
-  return secret === env.CRON_SECRET;
+  if (secret === env.CRON_SECRET) {
+    return true;
+  }
+
+  // Vercel Cron invokes the path with `Authorization: Bearer ${CRON_SECRET}`.
+  const authorization = request.headers.get("authorization");
+  return authorization === `Bearer ${env.CRON_SECRET}`;
+}
+
+export async function GET(request: Request) {
+  if (!isAuthorizedCronRequest(request)) {
+    return Response.json({ message: "Unauthorized cron invocation." }, { status: 401 });
+  }
+
+  const run = await runBirthdayScan(
+    runScanRequestSchema.parse({ trigger: "CRON" }),
+  );
+
+  return Response.json(run, {
+    status: run.status === "FAILED" ? 500 : 200,
+  });
 }
 
 export async function POST(request: Request) {

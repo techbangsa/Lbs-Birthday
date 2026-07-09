@@ -4,5 +4,10 @@
       "path": "/api/jobs/birthday-scan",
       "schedule": "0 0 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/jobs/birthday-scan/route.ts": {
+      "maxDuration": 300
+    }
+  }
 }
