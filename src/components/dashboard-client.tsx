@@ -11,7 +11,7 @@ import {
   Page,
   Text,
 } from "@shopify/polaris";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { RunHistory } from "@/components/run-history";
 import { SettingsForm } from "@/components/settings-form";
@@ -35,8 +35,16 @@ type RunNotice = {
   message: string;
 } | null;
 
-async function readJson<T>(response: Response) {
-  return (await response.json()) as T;
+async function readJson<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    throw new Error(`Server returned non-JSON response (Status ${response.status}).`);
+  }
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new Error(`Failed to parse server JSON response (Status ${response.status}).`);
+  }
 }
 
 export function DashboardClient({
@@ -59,6 +67,48 @@ export function DashboardClient({
   const [savePending, startSaveTransition] = useTransition();
   const [runPending, startRunTransition] = useTransition();
   const [customersPending, startCustomersTransition] = useTransition();
+
+  // Poll for running scans in the background
+  useEffect(() => {
+    const hasRunning = runs.some((run) => run.status === "RUNNING");
+    if (!hasRunning) return;
+
+    let previousRunningIds = runs
+      .filter((run) => run.status === "RUNNING")
+      .map((run) => run.id)
+      .join(",");
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch("/api/runs", { cache: "no-store" });
+        if (!response.ok) return;
+        const latestRuns = await readJson<BirthdayRunDto[]>(response);
+
+        setRuns((current) => {
+          const runsMap = new Map(current.map((r) => [r.id, r]));
+          latestRuns.forEach((r) => runsMap.set(r.id, r));
+          return Array.from(runsMap.values()).sort(
+            (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+          );
+        });
+
+        const currentRunningIds = latestRuns
+          .filter((run) => run.status === "RUNNING")
+          .map((run) => run.id)
+          .join(",");
+
+        if (currentRunningIds !== previousRunningIds) {
+          previousRunningIds = currentRunningIds;
+          void refreshDashboard();
+          void refreshCustomers(true);
+        }
+      } catch (err) {
+        console.error("Failed to poll runs:", err);
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [runs]);
 
   async function refreshDashboard() {
     const [nextSettingsResponse, nextRunsResponse] = await Promise.all([
@@ -190,21 +240,36 @@ export function DashboardClient({
 
           const payload = await readJson<BirthdayRunDto | { message?: string }>(response);
 
-          if (!response.ok && !("id" in payload)) {
+          if (!response.ok || !payload || !("id" in payload)) {
+            const errMsg = payload && "message" in payload && payload.message
+              ? payload.message
+              : `The birthday scan did not complete (Status ${response.status}).`;
             setRunNotice({
               kind: "error",
-              message: "message" in payload && payload.message ? payload.message : "The birthday scan did not complete.",
+              message: errMsg,
             });
             return;
           }
 
-          await Promise.all([refreshDashboard(), refreshCustomers(true)]);
+          const newRun = payload as BirthdayRunDto;
+          setRuns((current) => {
+            const filtered = current.filter((r) => r.id !== newRun.id);
+            return [newRun, ...filtered];
+          });
 
-          if ("summary" in payload) {
+          if (newRun.status === "RUNNING") {
             setRunNotice({
-              kind: response.ok ? "success" : "error",
-              message: payload.summary ?? (response.ok ? "Birthday scan finished." : "The birthday scan failed."),
+              kind: "info",
+              message: dryRun
+                ? "Preview is running in the background. Checking customers..."
+                : "Live run is running in the background. Updating tags...",
             });
+          } else {
+            setRunNotice({
+              kind: newRun.status === "FAILED" ? "error" : "success",
+              message: newRun.summary || "The birthday scan completed.",
+            });
+            await Promise.all([refreshDashboard(), refreshCustomers(true)]);
           }
         } catch (error) {
           setRunNotice({

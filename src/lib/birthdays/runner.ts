@@ -166,23 +166,30 @@ export async function runBirthdayScan({
   dryRun,
   trigger,
   pageLimit,
+  existingRunId,
 }: {
   dryRun: boolean;
   trigger: "MANUAL" | "CRON";
   pageLimit?: number;
+  existingRunId?: string;
 }) {
   const settingsModel = await getCampaignSettingsModel();
   const settings = await getCampaignSettings();
 
-  const run = await db.birthdayScanRun.create({
-    data: {
-      dryRun,
-      trigger,
-    },
-    include: {
-      discounts: true,
-    },
-  });
+  const run = existingRunId
+    ? await db.birthdayScanRun.findUniqueOrThrow({
+        where: { id: existingRunId },
+        include: { discounts: true },
+      })
+    : await db.birthdayScanRun.create({
+        data: {
+          dryRun,
+          trigger,
+        },
+        include: {
+          discounts: true,
+        },
+      });
 
   let matchedCount = 0;
   let createdCount = 0;

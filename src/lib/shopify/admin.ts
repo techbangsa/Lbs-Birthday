@@ -38,12 +38,31 @@ export async function shopifyAdminRequest<TData, TVariables extends Record<strin
     body: JSON.stringify({ query, variables }),
   });
 
-  const payload = (await response.json()) as GraphQlResponse<TData>;
+  const contentType = response.headers.get("content-type");
+  const isJson = contentType && contentType.includes("application/json");
+
+  let payload: GraphQlResponse<TData> | null = null;
+  if (isJson) {
+    try {
+      payload = (await response.json()) as GraphQlResponse<TData>;
+    } catch {
+      // JSON parsing failed despite header
+    }
+  }
 
   if (!response.ok) {
     throw new ShopifyAdminError(
       `Shopify Admin API request failed with status ${response.status}.`,
-      payload.errors ?? [],
+      payload?.errors ?? [],
+      response.status,
+    );
+  }
+
+  if (!payload) {
+    const responseText = await response.text().catch(() => "");
+    throw new ShopifyAdminError(
+      `Shopify Admin API returned non-JSON response (Status ${response.status}): ${responseText.substring(0, 200)}`,
+      [],
       response.status,
     );
   }

@@ -1,32 +1,14 @@
+import { after } from "next/server";
 import { runScanRequestSchema } from "@/lib/birthdays/contracts";
 import { runBirthdayScan } from "@/lib/birthdays/runner";
 import { env } from "@/lib/env";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 function isAuthorizedCronRequest(request: Request) {
   const secret = request.headers.get("x-cron-secret");
-  if (secret === env.CRON_SECRET) {
-    return true;
-  }
-
-  // Vercel Cron invokes the path with `Authorization: Bearer ${CRON_SECRET}`.
-  const authorization = request.headers.get("authorization");
-  return authorization === `Bearer ${env.CRON_SECRET}`;
-}
-
-export async function GET(request: Request) {
-  if (!isAuthorizedCronRequest(request)) {
-    return Response.json({ message: "Unauthorized cron invocation." }, { status: 401 });
-  }
-
-  const run = await runBirthdayScan(
-    runScanRequestSchema.parse({ trigger: "CRON" }),
-  );
-
-  return Response.json(run, {
-    status: run.status === "FAILED" ? 500 : 200,
-  });
+  return secret === env.CRON_SECRET;
 }
 
 export async function POST(request: Request) {
@@ -47,9 +29,42 @@ export async function POST(request: Request) {
     return Response.json({ message: "Unauthorized cron invocation." }, { status: 401 });
   }
 
-  const run = await runBirthdayScan(parsed.data);
+  // Pre-create the run record in "RUNNING" state
+  const run = await db.birthdayScanRun.create({
+    data: {
+      dryRun: parsed.data.dryRun,
+      trigger: parsed.data.trigger,
+    },
+  });
 
-  return Response.json(run, {
-    status: run.status === "FAILED" ? 500 : 200,
+  // Execute the actual scan asynchronously after response is sent
+  after(async () => {
+    try {
+      await runBirthdayScan({
+        ...parsed.data,
+        existingRunId: run.id,
+      });
+    } catch (error) {
+      console.error("Background birthday scan error:", error);
+    }
+  });
+
+  // Return the running run response immediately
+  return Response.json({
+    id: run.id,
+    status: run.status,
+    dryRun: run.dryRun,
+    trigger: run.trigger,
+    startedAt: run.startedAt.toISOString(),
+    finishedAt: null,
+    matchedCount: 0,
+    createdCount: 0,
+    skippedCount: 0,
+    failedCount: 0,
+    summary: parsed.data.dryRun
+      ? "Preview started in background."
+      : "Live run started in background.",
+    errorMessage: null,
+    results: [],
   });
 }
