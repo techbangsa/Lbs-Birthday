@@ -8,7 +8,49 @@ export const dynamic = "force-dynamic";
 
 function isAuthorizedCronRequest(request: Request) {
   const secret = request.headers.get("x-cron-secret");
-  return secret === env.CRON_SECRET;
+  if (secret === env.CRON_SECRET) {
+    return true;
+  }
+
+  // Vercel Cron invokes the path with `Authorization: Bearer ${CRON_SECRET}`.
+  const authorization = request.headers.get("authorization");
+  return authorization === `Bearer ${env.CRON_SECRET}`;
+}
+
+export async function GET(request: Request) {
+  if (!isAuthorizedCronRequest(request)) {
+    return Response.json({ message: "Unauthorized cron invocation." }, { status: 401 });
+  }
+
+  const parsed = runScanRequestSchema.parse({ trigger: "CRON" });
+
+  // Pre-create the run record in "RUNNING" state
+  const run = await db.birthdayScanRun.create({
+    data: {
+      dryRun: parsed.dryRun,
+      trigger: parsed.trigger,
+    },
+  });
+
+  // Execute the actual scan asynchronously after response is sent
+  after(async () => {
+    try {
+      await runBirthdayScan({
+        ...parsed,
+        existingRunId: run.id,
+      });
+    } catch (error) {
+      console.error("Background birthday scan error:", error);
+    }
+  });
+
+  return Response.json({
+    id: run.id,
+    status: run.status,
+    trigger: run.trigger,
+    startedAt: run.startedAt.toISOString(),
+    summary: "Cron run started in background.",
+  });
 }
 
 export async function POST(request: Request) {
