@@ -2,7 +2,10 @@ import { Badge, BlockStack, Card, InlineStack, Text } from "@shopify/polaris";
 
 import type { BirthdayRunDto } from "@/lib/birthdays/contracts";
 
-function formatDate(value: string | null) {
+// The timezone must be pinned to the campaign's. Left to the runtime default,
+// the server formats in UTC and the browser in the viewer's local zone, and the
+// two renders disagree during hydration.
+function formatDate(value: string | null, timeZone: string) {
   if (!value) {
     return "-";
   }
@@ -10,6 +13,7 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone,
   }).format(new Date(value));
 }
 
@@ -82,7 +86,7 @@ function getTagSummary(run: BirthdayRunDto) {
     : `${customerLabel} had tag ${result.tag} removed.`;
 }
 
-export function RunHistory({ runs }: { runs: BirthdayRunDto[] }) {
+export function RunHistory({ runs, timeZone }: { runs: BirthdayRunDto[]; timeZone: string }) {
   return (
     <BlockStack gap="300">
       <Card>
@@ -118,7 +122,8 @@ export function RunHistory({ runs }: { runs: BirthdayRunDto[] }) {
                   {getRunHeadline(run)}
                 </Text>
                 <Text as="p" tone="subdued">
-                  Started {formatDate(run.startedAt)}{run.finishedAt ? ` · Finished ${formatDate(run.finishedAt)}` : ""}
+                  Started {formatDate(run.startedAt, timeZone)}
+                  {run.finishedAt ? ` · Finished ${formatDate(run.finishedAt, timeZone)}` : ""}
                 </Text>
                 <Text as="p" tone="subdued">
                   {getRunStats(run)}

@@ -146,18 +146,8 @@ export async function getCustomersPage({
   };
 }
 
-export async function getBirthdayCustomers({
-  namespace,
-  key,
-}: {
-  namespace: string;
-  key: string;
-}): Promise<ShopifyBirthdayCustomer[]> {
-  const customers: ShopifyBirthdayCustomer[] = [];
-  for await (const customer of iterateCustomers({ namespace, key, pageSize: 250 })) {
-    if (customer.birthdayValue) {
-      customers.push(customer);
-    }
-  }
-  return customers;
-}
+// Note: there is deliberately no "fetch every birthday customer" helper here.
+// Shopify rejects metafield filters on the customers query ("Invalid search
+// field"), so collecting them means paging the whole store — far too slow for a
+// request. Scans keep that snapshot in the BirthdayCustomer table instead; read
+// it through @/lib/birthdays/customer-cache.

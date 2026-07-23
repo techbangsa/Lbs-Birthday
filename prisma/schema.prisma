@@ -71,6 +71,22 @@ model BirthdayCampaignSettings {
   updatedAt                    DateTime             @updatedAt
 }
 
+/// Snapshot of the customers that have a birthday metafield set.
+/// Shopify cannot filter customers by metafield, so finding them means paging
+/// through every customer in the store. Scans already do that walk, so they
+/// refresh this table and the UI reads from here instead of re-walking Shopify.
+model BirthdayCustomer {
+  customerId    String   @id
+  displayName   String
+  email         String?
+  birthdayValue String
+  monthDay      String
+  tags          String[]
+  syncedAt      DateTime @default(now())
+
+  @@index([monthDay])
+}
+
 model BirthdayScanRun {
   id           String              @id @default(cuid())
   status       RunStatus           @default(RUNNING)

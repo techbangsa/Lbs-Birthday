@@ -2,7 +2,7 @@ import "server-only";
 
 import type { UpcomingBirthdayDto } from "@/lib/birthdays/contracts";
 import { getDatePartsInTimeZone, parseBirthdayValue } from "@/lib/birthdays/matcher";
-import { getBirthdayCustomers } from "@/lib/shopify/customers";
+import { db } from "@/lib/db";
 
 /**
  * Compute the number of days until the next occurrence of a birthday (month/day),
@@ -43,65 +43,46 @@ function formatDaysUntil(days: number): string {
 }
 
 export async function getUpcomingBirthdays({
-  namespace,
-  key,
   timeZone,
   limit = 5,
 }: {
-  namespace: string;
-  key: string;
   timeZone: string;
   limit?: number;
 }): Promise<UpcomingBirthdayDto[]> {
-  const now = new Date();
-  const today = getDatePartsInTimeZone(now, timeZone);
+  const today = getDatePartsInTimeZone(new Date(), timeZone);
+  const customers = await db.birthdayCustomer.findMany();
 
-  // Fetch all customers that have a birthday metafield set (~205 customers).
-  // This reuses the same function as the /customers page, which is proven to work.
-  const customers = await getBirthdayCustomers({ namespace, key });
-
-  const candidates: Array<{
-    id: string;
-    displayName: string;
-    email: string | null;
-    birthdayValue: string;
-    monthDay: string;
-    daysUntil: number;
-  }> = [];
-
-  for (const customer of customers) {
-    if (!customer.birthdayValue) continue;
-
+  const candidates = customers.flatMap((customer) => {
     const parsed = parseBirthdayValue(customer.birthdayValue);
-    if (!parsed) continue;
+    if (!parsed) {
+      return [];
+    }
 
-    const days = daysUntilBirthday(parsed.month, parsed.day, today.month, today.day, today.year);
+    return [
+      {
+        id: customer.customerId,
+        displayName: customer.displayName,
+        email: customer.email,
+        birthdayValue: customer.birthdayValue,
+        monthDay: parsed.monthDay,
+        daysUntil: daysUntilBirthday(parsed.month, parsed.day, today.month, today.day, today.year),
+      },
+    ];
+  });
 
-    candidates.push({
-      id: customer.id,
-      displayName: customer.displayName,
-      email: customer.email,
-      birthdayValue: customer.birthdayValue,
-      monthDay: parsed.monthDay,
-      daysUntil: days,
-    });
-  }
-
-  // Sort by days until birthday (ascending), then by name for ties
   candidates.sort((a, b) => {
     if (a.daysUntil !== b.daysUntil) return a.daysUntil - b.daysUntil;
     return a.displayName.localeCompare(b.displayName);
   });
 
-  // Take the closest N
-  return candidates.slice(0, limit).map((c) => ({
-    id: c.id,
-    displayName: c.displayName,
-    email: c.email,
-    birthdayValue: c.birthdayValue,
-    birthdayMonthDay: c.monthDay,
-    daysUntil: c.daysUntil,
-    daysUntilLabel: formatDaysUntil(c.daysUntil),
-    isToday: c.daysUntil === 0,
+  return candidates.slice(0, limit).map((candidate) => ({
+    id: candidate.id,
+    displayName: candidate.displayName,
+    email: candidate.email,
+    birthdayValue: candidate.birthdayValue,
+    birthdayMonthDay: candidate.monthDay,
+    daysUntil: candidate.daysUntil,
+    daysUntilLabel: formatDaysUntil(candidate.daysUntil),
+    isToday: candidate.daysUntil === 0,
   }));
 }

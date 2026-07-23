@@ -3,6 +3,7 @@ import "server-only";
 import type { BirthdayScanRun, GeneratedDiscount } from "@prisma/client";
 
 import { birthdayTodayTag, type BirthdayRunDto, type GeneratedTagResultDto } from "@/lib/birthdays/contracts";
+import { replaceBirthdayCustomerCache, type BirthdayCustomerCacheRow } from "@/lib/birthdays/customer-cache";
 import { birthdayMatchesToday, getCampaignYear, parseBirthdayValue } from "@/lib/birthdays/matcher";
 import { getCampaignSettings, getCampaignSettingsModel } from "@/lib/birthdays/settings";
 import { db } from "@/lib/db";
@@ -197,6 +198,7 @@ export async function runBirthdayScan({
   let failedCount = 0;
   let addCount = 0;
   let removeCount = 0;
+  const birthdayCustomers: BirthdayCustomerCacheRow[] = [];
   const now = new Date();
   const campaignYear = getCampaignYear(now, settings.timezone);
 
@@ -221,6 +223,18 @@ export async function runBirthdayScan({
     })) {
       const parsedBirthday = customer.birthdayValue ? parseBirthdayValue(customer.birthdayValue) : null;
       const birthdayMonthDay = parsedBirthday?.monthDay ?? "Unknown";
+
+      if (customer.birthdayValue && parsedBirthday) {
+        birthdayCustomers.push({
+          customerId: customer.id,
+          displayName: customer.displayName,
+          email: customer.email,
+          birthdayValue: customer.birthdayValue,
+          monthDay: parsedBirthday.monthDay,
+          tags: customer.tags,
+        });
+      }
+
       const customerHasBirthdayToday =
         customer.birthdayValue !== null &&
         birthdayMatchesToday({
@@ -317,6 +331,13 @@ export async function runBirthdayScan({
           dryRun: false,
         });
       }
+    }
+
+    // A page-limited run only sees part of the store, so the customers it did
+    // not reach would look like they lost their birthday. Only a full walk is
+    // allowed to replace the snapshot.
+    if (pageLimit === undefined) {
+      await replaceBirthdayCustomerCache(birthdayCustomers);
     }
 
     await db.birthdayCampaignSettings.update({

@@ -413,7 +413,7 @@ export function DashboardClient({
         <Layout.Section variant="oneThird">
           <BlockStack gap="400">
             <UpcomingBirthdays />
-            <RunHistory runs={runs} />
+            <RunHistory runs={runs} timeZone={settings.timezone} />
           </BlockStack>
         </Layout.Section>
       </Layout>

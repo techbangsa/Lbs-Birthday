@@ -1,15 +1,10 @@
-import { getCampaignSettingsModel } from "@/lib/birthdays/settings";
-import { getBirthdayCustomers } from "@/lib/shopify/customers";
+import { listCachedBirthdayCustomers } from "@/lib/birthdays/customer-cache";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const settings = await getCampaignSettingsModel();
-    const customers = await getBirthdayCustomers({
-      namespace: settings.birthdayNamespace,
-      key: settings.birthdayKey,
-    });
+    const customers = await listCachedBirthdayCustomers();
 
     return Response.json({ customers });
   } catch (error) {
